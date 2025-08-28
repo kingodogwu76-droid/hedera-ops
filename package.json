@@ -2,12 +2,14 @@
   "name": "hedera-ops",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
+   "scripts": {
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "lint": "next lint",
+  "postinstall": "next build",
+  "vercel-build": "next build --no-lint"
+},
   "dependencies": {
     "@hashgraph/sdk": "^2.71.1",
     "dotenv": "^17.2.1",
