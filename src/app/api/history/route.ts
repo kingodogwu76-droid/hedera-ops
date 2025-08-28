@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logs } from "@/lib/logStore";
 
 export async function GET(req: NextRequest) {
   try {

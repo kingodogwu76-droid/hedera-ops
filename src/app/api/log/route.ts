@@ -3,10 +3,11 @@ import {
   Client,
   TopicMessageSubmitTransaction,
 } from "@hashgraph/sdk";
+import { logs, LogEntry } from "@/lib/logStore";
 
 export async function POST(req: Request) {
   try {
-    const { batchId, role, event, location, notes } = await req.json();
+    const { batchId, step, location, coords } = await req.json();
 
     const client =
       process.env.HEDERA_NETWORK === "testnet"
@@ -20,20 +21,21 @@ export async function POST(req: Request) {
 
     const topicId = process.env.HEDERA_TOPIC_ID!;
 
-    // Create message payload
-    const message = JSON.stringify({
-  batchId,
-  step: event,   // normalize so history always reads `step`
-  role,
-  location,
-  notes,
-  timestamp: new Date().toISOString(),
-});
+    const newLog: LogEntry = {
+      batchId,
+      step,
+      location,
+      coords,
+      timestamp: new Date().toISOString(),
+    };
 
+    // Save in memory
+    logs.push(newLog);
 
+    // Also submit to Hedera
     const tx = await new TopicMessageSubmitTransaction()
       .setTopicId(topicId)
-      .setMessage(message)
+      .setMessage(JSON.stringify(newLog))
       .execute(client);
 
     const receipt = await tx.getReceipt(client);
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       status: receipt.status.toString(),
-      message,
+      log: newLog,
     });
   } catch (err: any) {
     console.error(err);

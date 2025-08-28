@@ -2,111 +2,113 @@
 
 import { useState } from "react";
 
-export default function Home() {
-  const [batchId, setBatchId] = useState("FARM-001");
-  const [role, setRole] = useState<"farmer" | "distributor" | "retailer">("farmer");
-  const [event, setEvent] = useState<"harvested" | "shipped" | "arrived" | "stocked">("harvested");
+export default function SubmitLogPage() {
+  const [batchId, setBatchId] = useState("");
+  const [step, setStep] = useState("");
   const [location, setLocation] = useState("");
-  const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatus("submitting...");
+  const handleSubmit = async () => {
+    if (!batchId || !step) {
+      setError("Batch ID and Step are required");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
     try {
+      let coords: { lat: number; lng: number } | undefined;
+
+      // ✅ Try to fetch user coordinates
+      await new Promise<void>((resolve) => {
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              coords = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+              };
+              resolve();
+            },
+            () => resolve(), // If user denies or fails → just continue without coords
+            { enableHighAccuracy: true }
+          );
+        } else {
+          resolve();
+        }
+      });
+
+      // ✅ Send data to backend
       const res = await fetch("/api/log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ batchId, role, event, location, notes }),
+        body: JSON.stringify({
+          batchId,
+          step,
+          location, // optional typed location
+          coords, // { lat, lng } if available
+        }),
       });
+
       const data = await res.json();
-      if (data.success) {
-        setStatus(`✅ submitted (topic ${data.topicId})`);
+
+      if (data.error) {
+        setError(data.error);
       } else {
-        setStatus(`❌ ${data.error}`);
+        setSuccess("✅ Event submitted successfully!");
+        setBatchId("");
+        setStep("");
+        setLocation("");
       }
-    } catch {
-      setStatus("❌ network error");
+    } catch (err: any) {
+      setError(err.message);
     }
+
+    setLoading(false);
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
-      <form
-        onSubmit={submit}
-        className="w-full max-w-xl bg-white rounded-2xl shadow p-6 space-y-4"
+    <div className="p-6 max-w-lg mx-auto">
+      <h1 className="text-2xl font-bold mb-4">📌 Log Supply Chain Event</h1>
+
+      <input
+        type="text"
+        placeholder="Batch ID (e.g. BATCH-001)"
+        value={batchId}
+        onChange={(e) => setBatchId(e.target.value)}
+        className="border p-2 mb-2 w-full rounded"
+      />
+
+      <input
+        type="text"
+        placeholder="Step (e.g. Harvested, Shipped)"
+        value={step}
+        onChange={(e) => setStep(e.target.value)}
+        className="border p-2 mb-2 w-full rounded"
+      />
+
+      <input
+        type="text"
+        placeholder="Optional location name (e.g. Kano Farm)"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        className="border p-2 mb-2 w-full rounded"
+      />
+
+      <button
+        onClick={handleSubmit}
+        disabled={loading}
+        className="bg-blue-600 text-white px-4 py-2 rounded w-full"
       >
-        <h1 className="text-2xl font-bold">🚜 Farm Supply Transparency</h1>
+        {loading ? "Submitting..." : "Submit Event"}
+      </button>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label className="flex flex-col">
-            <span className="text-sm text-gray-600 mb-1">Batch ID</span>
-            <input
-              className="border rounded-xl p-2"
-              value={batchId}
-              onChange={(e) => setBatchId(e.target.value)}
-              placeholder="FARM-001"
-              required
-            />
-          </label>
-
-          <label className="flex flex-col">
-            <span className="text-sm text-gray-600 mb-1">Role</span>
-            <select
-              className="border rounded-xl p-2"
-              value={role}
-              onChange={(e) => setRole(e.target.value as any)}
-            >
-              <option value="farmer">farmer</option>
-              <option value="distributor">distributor</option>
-              <option value="retailer">retailer</option>
-            </select>
-          </label>
-
-          <label className="flex flex-col">
-            <span className="text-sm text-gray-600 mb-1">Event</span>
-            <select
-              className="border rounded-xl p-2"
-              value={event}
-              onChange={(e) => setEvent(e.target.value as any)}
-            >
-              <option value="harvested">harvested</option>
-              <option value="shipped">shipped</option>
-              <option value="arrived">arrived</option>
-              <option value="stocked">stocked</option>
-            </select>
-          </label>
-
-          <label className="flex flex-col">
-            <span className="text-sm text-gray-600 mb-1">Location (optional)</span>
-            <input
-              className="border rounded-xl p-2"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Village X"
-            />
-          </label>
-        </div>
-
-        <label className="flex flex-col">
-          <span className="text-sm text-gray-600 mb-1">Notes (optional)</span>
-          <textarea
-            className="border rounded-xl p-2"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Quality checked, organic, etc."
-          />
-        </label>
-
-        <button
-          type="submit"
-          className="px-6 py-3 bg-green-600 text-white rounded-2xl shadow hover:bg-green-700"
-        >
-          Submit Event
-        </button>
-
-        <p className="text-sm text-gray-700">{status}</p>
-      </form>
-    </main>
+      {error && <p className="text-red-600 mt-3">❌ {error}</p>}
+      {success && <p className="text-green-600 mt-3">{success}</p>}
+    </div>
   );
 }

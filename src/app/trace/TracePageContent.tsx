@@ -1,8 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { QRCodeCanvas } from "qrcode.react";
+import dynamic from "next/dynamic";
+
+// ✅ Dynamically import map components (Next.js SSR fix)
+const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
+const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
+
+import "leaflet/dist/leaflet.css";
 
 export default function TracePage() {
   const searchParams = useSearchParams();
@@ -24,13 +33,7 @@ export default function TracePage() {
       if (data.error) {
         setError(data.error);
       } else {
-        // sort newest → oldest
-        setHistory(
-          data.history.sort(
-            (a: any, b: any) =>
-              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          )
-        );
+        setHistory(data.history);
       }
     } catch (err: any) {
       setError(err.message);
@@ -45,81 +48,112 @@ export default function TracePage() {
     }
   }, [initialBatchId]);
 
+  // ✅ Get first valid coordinate for map center
+  const firstCoords = history.find((e) => e.coords)?.coords;
+
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">🌱 Supply Chain Trace</h1>
+    <Suspense fallback={<p className="p-6">Loading trace page...</p>}>
+      <div className="p-6 max-w-3xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4">🌱 Supply Chain Trace</h1>
 
-      {/* Input + button */}
-      <div className="flex gap-2 mb-6">
-        <input
-          type="text"
-          placeholder="Enter Batch ID (e.g. BATCH-001)"
-          value={batchId}
-          onChange={(e) => setBatchId(e.target.value)}
-          className="border p-2 flex-1 rounded"
-        />
-        <button
-          onClick={() => fetchHistory(batchId)}
-          disabled={!batchId || loading}
-          className="bg-green-600 text-white px-4 py-2 rounded"
-        >
-          {loading ? "Loading..." : "Trace"}
-        </button>
-      </div>
-
-      {/* ✅ QR Code */}
-      {batchId && (
-        <div className="mb-6 text-center">
-          <p className="mb-2 font-semibold">🔗 Share this Batch</p>
-          <QRCodeCanvas
-            value={`${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/trace?batchId=${batchId}`}
-            size={180}
-            className="mx-auto"
+        <div className="flex gap-2 mb-6">
+          <input
+            type="text"
+            placeholder="Enter Batch ID (e.g. BATCH-001)"
+            value={batchId}
+            onChange={(e) => setBatchId(e.target.value)}
+            className="border p-2 flex-1 rounded"
           />
-          <p className="text-sm text-gray-500 mt-2">
-            Scan to view Batch {batchId}
-          </p>
+          <button
+            onClick={() => fetchHistory(batchId)}
+            disabled={!batchId || loading}
+            className="bg-green-600 text-white px-4 py-2 rounded"
+          >
+            {loading ? "Loading..." : "Trace"}
+          </button>
         </div>
-      )}
 
-      {error && <p className="text-red-600">❌ {error}</p>}
-
-      {/* Timeline */}
-      <div>
-        {history.length === 0 ? (
-          <p className="text-gray-500">
-            No history yet for {batchId || "this batch"}
-          </p>
-        ) : (
-          <ul className="space-y-4">
-            {history.map((event, idx) => (
-              <li
-                key={idx}
-                className="border p-4 rounded shadow bg-white"
-              >
-                <p>
-                  <span className="font-semibold">Step:</span> {event.event}
-                </p>
-                <p>
-                  <span className="font-semibold">Role:</span> {event.role}
-                </p>
-                <p>
-                  <span className="font-semibold">Location:</span>{" "}
-                  {event.location || "N/A"}
-                </p>
-                <p>
-                  <span className="font-semibold">Notes:</span>{" "}
-                  {event.notes || "—"}
-                </p>
-                <p className="text-sm text-gray-500">
-                  <span className="font-semibold">Timestamp:</span>{" "}
-                  {event.timestamp}
-                </p>
-              </li>
-            ))}
-          </ul>
+        {/* ✅ QR Code section */}
+        {batchId && (
+          <div className="mb-6 text-center">
+            <p className="mb-2 font-semibold">🔗 Share this Batch</p>
+            <QRCodeCanvas
+              value={`${window.location.origin}/trace?batchId=${batchId}`}
+              size={180}
+              className="mx-auto"
+            />
+            <p className="text-sm text-gray-500 mt-2">
+              Scan to view Batch {batchId}
+            </p>
+          </div>
         )}
+
+        {error && <p className="text-red-600">❌ {error}</p>}
+
+        {/* ✅ Map Section */}
+        {firstCoords && (
+          <div className="h-96 w-full mb-6">
+            <MapContainer
+              center={[firstCoords.lat, firstCoords.lng]}
+              zoom={6}
+              className="h-full w-full rounded-lg shadow"
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution="© OpenStreetMap contributors"
+              />
+              {history.map(
+                (event, idx) =>
+                  event.coords && (
+                    <Marker
+                      key={idx}
+                      position={[event.coords.lat, event.coords.lng]}
+                    >
+                      <Popup>
+                        <p><b>Step:</b> {event.step}</p>
+                        <p><b>Location:</b> {event.location || "Unknown"}</p>
+                        <p><b>Time:</b> {event.timestamp}</p>
+                      </Popup>
+                    </Marker>
+                  )
+              )}
+            </MapContainer>
+          </div>
+        )}
+
+        {/* ✅ Event history list */}
+        <div>
+          {history.length === 0 ? (
+            <p className="text-gray-500">
+              No history yet for {batchId || "this batch"}
+            </p>
+          ) : (
+            <ul className="space-y-4">
+              {history.map((event, idx) => (
+                <li key={idx} className="border p-4 rounded shadow">
+                  <p>
+                    <span className="font-semibold">Step:</span> {event.step}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Location:</span>{" "}
+                    {event.location || "Unknown"}
+                  </p>
+                  {event.coords && (
+                    <p>
+                      <span className="font-semibold">Coordinates:</span>{" "}
+                      {event.coords.lat}, {event.coords.lng}
+                    </p>
+                  )}
+                  <p>
+                    <span className="font-semibold">Timestamp:</span>{" "}
+                    {event.timestamp}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-    </div>
+    </Suspense>
   );
 }
