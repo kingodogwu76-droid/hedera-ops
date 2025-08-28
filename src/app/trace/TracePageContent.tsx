@@ -95,7 +95,7 @@ export default function TracePage() {
         {firstCoords && (
           <div className="h-96 w-full mb-6">
             <MapContainer
-  center={[coords.lat || 0, coords.lng || 0]}
+  center={[coords.lat || 0, coords.lng || 0] as [number, number]}
   zoom={13}
   style={{ height: "400px", width: "100%" }}
 >
@@ -103,7 +103,7 @@ export default function TracePage() {
     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
     attribution="© OpenStreetMap contributors"
   />
-  <Marker position={[coords.lat, coords.lng]}>
+  <Marker position={[coords.lat || 0, coords.lng || 0]}>
     <Popup>Current Location</Popup>
   </Marker>
 </MapContainer>
