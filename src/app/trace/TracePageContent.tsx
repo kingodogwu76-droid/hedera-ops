@@ -21,6 +21,7 @@ export default function TracePage() {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // 🔄 Fetch history
   const fetchHistory = async (id: string) => {
