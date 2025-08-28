@@ -94,30 +94,18 @@ export default function TracePage() {
         {firstCoords && (
           <div className="h-96 w-full mb-6">
             <MapContainer
-              center={[firstCoords.lat, firstCoords.lng]}
-              zoom={6}
-              className="h-full w-full rounded-lg shadow"
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution="© OpenStreetMap contributors"
-              />
-              {history.map(
-                (event, idx) =>
-                  event.coords && (
-                    <Marker
-                      key={idx}
-                      position={[event.coords.lat, event.coords.lng]}
-                    >
-                      <Popup>
-                        <p><b>Step:</b> {event.step}</p>
-                        <p><b>Location:</b> {event.location || "Unknown"}</p>
-                        <p><b>Time:</b> {event.timestamp}</p>
-                      </Popup>
-                    </Marker>
-                  )
-              )}
-            </MapContainer>
+  center={[coords.lat || 0, coords.lng || 0]}
+  zoom={13}
+  style={{ height: "400px", width: "100%" }}
+>
+  <TileLayer
+    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+    attribution="© OpenStreetMap contributors"
+  />
+  <Marker position={[coords.lat, coords.lng]}>
+    <Popup>Current Location</Popup>
+  </Marker>
+</MapContainer>
           </div>
         )}
 
