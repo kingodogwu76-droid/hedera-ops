@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { QRCodeCanvas } from "qrcode.react";
 
 // ✅ Load map only on client, avoids Next.js SSR crash
-const Map = dynamic(() => import("@/components/Map"), { ssr: false });
+const Map = dynamic(() => import("@/app/components/Map"), { ssr: false });
 
 export default function TracePage() {
   const searchParams = useSearchParams();
